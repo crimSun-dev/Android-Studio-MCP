@@ -141,6 +141,99 @@ export function registerIdeTools(server: McpServer) {
     safe(async (a) => json(await callBridge("run", a))),
   );
 
+  const position = {
+    path: z.string().describe("Absolute file path"),
+    line: z.number().int().min(1),
+    column: z.number().int().min(1).default(1).describe("Column of the symbol's name (a declaration or a reference to it)"),
+  };
+
+  server.registerTool(
+    "ide_find_usages",
+    {
+      title: "Find usages",
+      description:
+        "Find every reference to the symbol at path:line:column across the project using the IDE's semantic index (Kotlin and Java aware, not text search).",
+      inputSchema: { ...position, limit: z.number().int().min(1).max(2000).default(200), project },
+      annotations: { readOnlyHint: true },
+    },
+    safe(async (a) => json(await callBridge("find_usages", { ...a, path: path.resolve(a.path) }, 120_000))),
+  );
+
+  server.registerTool(
+    "ide_rename",
+    {
+      title: "Rename symbol",
+      description:
+        "Rename the symbol at path:line:column and update all references, like Shift+F6 (classes also rename their file). Saves all files afterwards. " +
+        "If the IDE detects conflicts it shows a dialog in Studio and this call times out; resolve it there.",
+      inputSchema: {
+        ...position,
+        newName: z.string().min(1),
+        searchInComments: z.boolean().default(false),
+        searchTextOccurrences: z.boolean().default(false).describe("Also rename plain-text occurrences in non-code files"),
+        project,
+      },
+      annotations: { destructiveHint: true },
+    },
+    safe(async (a) => json(await callBridge("rename", { ...a, path: path.resolve(a.path) }, 150_000))),
+  );
+
+  server.registerTool(
+    "ide_project_problems",
+    {
+      title: "Project problems",
+      description:
+        "Run Android Studio's analysis (compiler checks, inspections, on-the-fly lint) over the project or given files/folders without opening them or running Gradle. " +
+        "Errors only by default; faster than a build for checking an edit compiles.",
+      inputSchema: {
+        paths: z.array(z.string()).optional().describe("Files or directories to analyze. Defaults to the whole project."),
+        minSeverity: z.enum(["error", "warning", "weak_warning"]).default("error"),
+        maxFiles: z.number().int().min(1).max(5000).default(300),
+        project,
+      },
+      annotations: { readOnlyHint: true },
+    },
+    safe(async (a) =>
+      json(await callBridge("project_problems", { ...a, paths: a.paths?.map((p) => path.resolve(p)) }, 300_000)),
+    ),
+  );
+
+  server.registerTool(
+    "ide_gradle_sync",
+    {
+      title: "Gradle sync",
+      description: "Run 'Sync Project with Gradle Files' in Android Studio and wait for the result (success, or the failure message).",
+      inputSchema: { waitSec: z.number().int().min(1).max(110).default(100), project },
+    },
+    safe(async (a) => json(await callBridge("gradle_sync", a, (a.waitSec + 20) * 1000))),
+  );
+
+  server.registerTool(
+    "ide_sync_status",
+    {
+      title: "Gradle sync status",
+      description: "State of the most recent Gradle sync in Android Studio (running / succeeded / failed with error).",
+      inputSchema: { project },
+      annotations: { readOnlyHint: true },
+    },
+    safe(async (a) => json(await callBridge("sync_status", a))),
+  );
+
+  server.registerTool(
+    "ide_screenshot",
+    {
+      title: "IDE screenshot",
+      description:
+        "Capture Android Studio's window (or just the active editor area) as an image: see Compose previews, the layout editor, tool windows and error balloons as the user does.",
+      inputSchema: { target: z.enum(["window", "editor"]).default("window"), project },
+      annotations: { readOnlyHint: true },
+    },
+    safe(async (a) => {
+      const r = await callBridge<{ mimeType: string; data: string }>("screenshot", a);
+      return { content: [{ type: "image" as const, data: r.data, mimeType: r.mimeType }] };
+    }),
+  );
+
   server.registerTool(
     "ide_find_files",
     {
