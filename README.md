@@ -38,7 +38,7 @@ Requires Node 20+, an Android SDK (platform-tools; emulator for the AVD tools), 
 | `ANDROID_PROJECT_DIR` | Default project. Otherwise every project tool takes `projectDir`, or the server's cwd is searched upward. |
 | `ASMCP_TOKEN`, `ASMCP_PORT` | HTTP mode only: auth token (random if unset) and port (default 3939). |
 
-Replace the `/path/to/...` placeholders below with your paths. On Windows, use forward slashes or escaped backslashes in JSON and TOML.
+Replace the `/path/to/...` placeholders below with your paths. On Windows, use forward slashes (`C:/Users/me/AppData/Local/Android/Sdk`) or escaped backslashes in JSON and TOML. If your SDK and Studio are in their default locations, you can leave out `ANDROID_SDK_ROOT` and `ANDROID_STUDIO_HOME`.
 
 ### Claude Code
 
