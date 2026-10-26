@@ -8,6 +8,7 @@ import { createServer, type IncomingMessage } from "node:http";
 import { registerDeviceTools } from "./tools/device.js";
 import { registerEmulatorTools } from "./tools/emulator.js";
 import { registerGradleTools } from "./tools/gradle.js";
+import { registerIdeTools } from "./tools/ide.js";
 import { registerProjectTools } from "./tools/project.js";
 
 const VERSION = "0.1.0";
@@ -19,6 +20,7 @@ function buildServer(): McpServer {
       instructions:
         "Android development tools: Gradle builds/tests/lint for the project, adb device control (install, launch, logcat, screenshots, UI hierarchy, input), and emulator management. " +
         "Start with `environment` or `project_info`. Long operations (build, run_app, gradle_run, emulator_start) return a job: if status is 'running', poll `job_status` with the id. " +
+        "When Android Studio is open with the bridge plugin, `ide_*` tools see live editor state: `ide_read_file` returns unsaved edits and `ide_problems` returns IDE analysis without a Gradle build. " +
         "To verify UI, use `screenshot` and `ui_dump`, then `input` with coordinates from ui_dump. After a crash, read `logcat` with crashesOnly.",
     },
   );
@@ -26,6 +28,7 @@ function buildServer(): McpServer {
   registerGradleTools(server);
   registerDeviceTools(server);
   registerEmulatorTools(server);
+  registerIdeTools(server);
   return server;
 }
 

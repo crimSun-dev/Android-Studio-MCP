@@ -1,0 +1,17 @@
+<idea-plugin>
+    <id>dev.asmcp.bridge</id>
+    <name>Android Studio MCP Bridge</name>
+    <vendor>android-studio-mcp</vendor>
+    <description><![CDATA[
+        Exposes live IDE state (open editors, unsaved buffers, highlighting problems, actions, run configurations)
+        on a token-protected localhost port, for the <code>android-studio-mcp</code> server used by Claude, Cursor,
+        Gemini CLI, Codex and other MCP clients.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="dev.asmcp.bridge.BridgeStartup"/>
+    </extensions>
+</idea-plugin>

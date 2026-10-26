@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { saveAllIfIdeRunning } from "../bridge.js";
 import { findSdk, gradleEnv } from "../env.js";
 import { killTree, run, tail } from "../exec.js";
 import { describeJob, startJob, waitForJob, type JobContext } from "../jobs.js";
@@ -62,6 +63,9 @@ function fileUrl(p: string): string {
 
 async function runGradle(root: string, tasks: string[], args: string[], ctx: JobContext) {
   const wrapper = gradleWrapper(root);
+  const saved = await saveAllIfIdeRunning();
+  if (saved?.length) ctx.log(`Saved ${saved.length} unsaved file(s) in Android Studio first
+`);
   const full = [...tasks, "--console=plain", ...args];
   ctx.log(`> ${path.basename(wrapper)} ${full.join(" ")}\n`);
   const res = await run(wrapper, full, {
