@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { callBridge, listBridges } from "../bridge.js";
 import { cmdlineToolPath, findSdk, findStudio, studioLauncher } from "../env.js";
 import { run, spawnDetached, tail } from "../exec.js";
 import { describeJob, getJob, listJobs, waitForJob } from "../jobs.js";
@@ -127,6 +128,10 @@ export function registerProjectTools(server: McpServer) {
       },
     },
     safe(async (a) => {
+      if (listBridges().length) {
+        await callBridge("open", { path: path.resolve(a.path), line: a.line, column: a.column });
+        return text(`Opened ${path.resolve(a.path)}${a.line ? `:${a.line}` : ""} in the running Android Studio`);
+      }
       const studio = findStudio();
       const launcher = studio && studioLauncher(studio);
       if (!launcher) return fail("Android Studio not found. Set ANDROID_STUDIO_HOME to its install directory.");

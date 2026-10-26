@@ -12,6 +12,7 @@ An MCP server that gives AI coding agents the Android Studio toolchain: Gradle b
 | UI | `screenshot` (returns an image), `ui_dump` (nodes with tap coordinates), `input` (tap / swipe / text / key) |
 | Emulator | `emulator_list`, `emulator_start`, `emulator_stop` |
 | Jobs | `job_status`, `job_cancel` |
+| Live IDE (needs the plugin) | `ide_status`, `ide_editors`, `ide_read_file` (unsaved buffers), `ide_problems` (live analysis, no Gradle), `ide_open`, `ide_save_all`, `ide_actions`, `ide_action` (e.g. `Android.SyncProject`), `ide_run_configurations`, `ide_run`, `ide_find_files` |
 
 **Long operations run as jobs.** `build`, `run_app`, `gradle_run` and `emulator_start` wait up to `waitSec` (default 50s). If they haven't finished by then, they return `{status: "running", id}` and the agent polls `job_status`. This stays under the tool-call timeouts that Cursor, Codex and Gemini CLI enforce.
 
@@ -105,6 +106,17 @@ ASMCP_TOKEN=<long-random-secret> node dist/index.js --http 3939
 
 Then expose it over HTTPS, for example with `cloudflared tunnel --url http://127.0.0.1:3939`. In ChatGPT → Settings → Connectors → Developer mode, add `https://<tunnel-host>/mcp/<token>` with no authentication. The token in the path is the credential. **Anyone with that URL can run shell commands on your devices and Gradle on your machine**, so keep it secret and stop the tunnel when you're done. Clients that can send headers can use `http://127.0.0.1:3939/mcp` with `Authorization: Bearer <token>` instead.
 
+## Android Studio plugin (live IDE bridge)
+
+`studio-plugin/` is a small IntelliJ Platform plugin. On startup it serves a token-protected HTTP endpoint on `127.0.0.1` (random port) and records the port and token in `~/.android-studio-mcp/bridges/<pid>.json`. The MCP server reads that file. When Studio is running, the `ide_*` tools work, and `build` / `run_app` save unsaved editors first. When it isn't running, everything else still works from the CLI.
+
+```sh
+cd studio-plugin
+./gradlew buildPlugin            # compiles against the Studio in ANDROID_STUDIO_HOME (or -PstudioHome=...)
+```
+
+Install `studio-plugin/build/distributions/android-studio-mcp-bridge-0.1.0.zip` via Settings → Plugins → ⚙ → Install Plugin from Disk, then restart Studio.
+
 ## Development
 
 ```sh
@@ -118,5 +130,5 @@ npm run inspect      # MCP Inspector UI
 
 ## Roadmap
 
-- **Phase 2: Android Studio plugin bridge.** A small IntelliJ plugin that exposes live IDE state to this server: open editors and unsaved buffers, inspections and problems, Gradle sync, run configurations, refactorings, and the Layout Inspector. The CLI tools here remain the fallback when Studio isn't running.
+- Plugin: rename/refactor and find-usages endpoints, project-wide problems, Gradle sync completion events, Layout Inspector and Compose preview capture.
 - Compose preview rendering, Logcat streaming via MCP notifications, `avdmanager` create/delete, instrumented-test sharding, and baseline profile / Macrobenchmark helpers.
