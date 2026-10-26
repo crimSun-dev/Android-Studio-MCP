@@ -9,10 +9,18 @@ import com.intellij.execution.executors.DefaultDebugExecutor
 import com.intellij.execution.executors.DefaultRunExecutor
 import com.intellij.ide.impl.ProjectUtil
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.ide.DataManager
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionUiKind
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.ex.ActionUtil
+import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ex.ApplicationManagerEx
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.editor.Document
@@ -52,6 +60,7 @@ object Handlers {
         "gradle_sync" to SyncTracker::sync,
         "sync_status" to SyncTracker::status,
         "screenshot" to Analysis::screenshot,
+        "exit" to ::exit,
     )
 
     fun dispatch(method: String, args: JsonObject): Any? {
@@ -121,6 +130,27 @@ object Handlers {
     internal fun column(doc: Document, offset: Int): Int {
         val o = offset.coerceIn(0, doc.textLength)
         return o - doc.getLineStartOffset(doc.getLineNumber(o)) + 1
+    }
+
+    /**
+     * Invoke an action with an explicit data context for this project and its active editor. Relying on the focused
+     * component fails when the IDE window isn't focused, which is the normal case when an agent drives it.
+     * Returns false if the action's update() disabled it.
+     */
+    internal fun invokeAction(project: Project, action: AnAction): Boolean = onEdt {
+        val editor = FileEditorManager.getInstance(project).selectedTextEditor
+        val component = editor?.contentComponent ?: WindowManager.getInstance().getFrame(project)?.rootPane
+        val builder = SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project)
+        if (component != null) builder.setParent(DataManager.getInstance().getDataContext(component))
+        if (editor != null) {
+            builder.add(CommonDataKeys.EDITOR, editor)
+            FileDocumentManager.getInstance().getFile(editor.document)?.let { builder.add(CommonDataKeys.VIRTUAL_FILE, it) }
+        }
+        val event = AnActionEvent.createEvent(builder.build(), action.templatePresentation.clone(), ActionPlaces.UNKNOWN, ActionUiKind.NONE, null)
+        ActionUtil.updateAction(action, event)
+        if (!event.presentation.isEnabled) return@onEdt false
+        ActionUtil.performAction(action, event)
+        true
     }
 
     // ---- methods -------------------------------------------------------------------------------
@@ -285,13 +315,18 @@ object Handlers {
         val project = project(args)
         val am = ActionManager.getInstance()
         val action = am.getAction(id) ?: throw BridgeError("Unknown action '$id'. Use the actions method to search.")
-        onEdt {
-            // Use the selected editor (or the frame) as the context component so the action sees this project.
-            val component = FileEditorManager.getInstance(project).selectedTextEditor?.contentComponent
-                ?: WindowManager.getInstance().getFrame(project)?.rootPane
-            am.tryToExecute(action, null, component, ActionPlaces.UNKNOWN, true)
-        }
+        val enabled = invokeAction(project, action)
+        if (!enabled) throw BridgeError("Action '$id' is disabled in the current context (e.g. no editor focused, or a sync is running)")
         return mapOf("invoked" to id, "project" to project.name)
+    }
+
+    /** Quit the IDE without the "Are you sure?" prompt (used when reinstalling this plugin). Editors are saved. */
+    private fun exit(@Suppress("UNUSED_PARAMETER") args: JsonObject): Any {
+        ApplicationManager.getApplication().invokeLater {
+            FileDocumentManager.getInstance().saveAllDocuments()
+            ApplicationManagerEx.getApplicationEx().exit(false, true)
+        }
+        return mapOf("exiting" to true)
     }
 
     private fun runConfigurations(args: JsonObject): Any {

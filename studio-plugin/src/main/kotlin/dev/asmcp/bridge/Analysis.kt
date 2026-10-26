@@ -7,8 +7,8 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.util.ProgressIndicatorBase
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.vfs.VirtualFile
@@ -146,7 +146,7 @@ object Analysis {
         // runMainPasses needs a progress indicator when called off the EDT (our HTTP threads).
         val results = ProgressManager.getInstance().runProcess<Map<Document, List<HighlightInfo>>>(
             { MainPassesRunner(project, "Analyzing for MCP", profile).runMainPasses(files, minSeverity) },
-            EmptyProgressIndicator(),
+            ProgressIndicatorBase(), // must be a ProgressIndicatorEx
         )
         val byFile = Handlers.read {
             results.mapNotNull { (doc, infos) ->
