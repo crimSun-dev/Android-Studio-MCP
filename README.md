@@ -38,15 +38,15 @@ Requires Node 20+, an Android SDK (platform-tools; emulator for the AVD tools), 
 | `ANDROID_PROJECT_DIR` | Default project. Otherwise every project tool takes `projectDir`, or the server's cwd is searched upward. |
 | `ASMCP_TOKEN`, `ASMCP_PORT` | HTTP mode only: auth token (random if unset) and port (default 3939). |
 
-The examples below use this machine's paths. In JSON, write Windows paths with forward slashes or escaped backslashes.
+Replace the `/path/to/...` placeholders below with your paths. On Windows, use forward slashes (`C:/Users/me/AppData/Local/Android/Sdk`) or escaped backslashes in JSON and TOML. If your SDK and Studio are in their default locations, you can leave out `ANDROID_SDK_ROOT` and `ANDROID_STUDIO_HOME`.
 
 ### Claude Code
 
 ```sh
 claude mcp add android-studio --scope user \
-  -e ANDROID_SDK_ROOT="G:/Draven's Very Important Files/Workspace/Android Studio/Android" \
-  -e ANDROID_STUDIO_HOME="G:/Draven's Very Important Files/Workspace/Android Studio/Android Studio Files" \
-  -- node "G:/Draven's Very Important Files/Workspace/Android Studio/android-studio-mcp/dist/index.js"
+  -e ANDROID_SDK_ROOT="/path/to/Android/Sdk" \
+  -e ANDROID_STUDIO_HOME="/path/to/Android Studio" \
+  -- node "/path/to/android-studio-mcp/dist/index.js"
 ```
 
 Leave `ANDROID_PROJECT_DIR` unset. Claude Code starts the server in the folder you open, so it finds the project automatically.
@@ -59,11 +59,11 @@ Leave `ANDROID_PROJECT_DIR` unset. Claude Code starts the server in the folder y
   "mcpServers": {
     "android-studio": {
       "command": "node",
-      "args": ["G:/Draven's Very Important Files/Workspace/Android Studio/android-studio-mcp/dist/index.js"],
+      "args": ["/path/to/android-studio-mcp/dist/index.js"],
       "env": {
-        "ANDROID_SDK_ROOT": "G:/Draven's Very Important Files/Workspace/Android Studio/Android",
-        "ANDROID_STUDIO_HOME": "G:/Draven's Very Important Files/Workspace/Android Studio/Android Studio Files",
-        "ANDROID_PROJECT_DIR": "G:/Draven's Very Important Files/Workspace/Android Studio/Apps"
+        "ANDROID_SDK_ROOT": "/path/to/Android/Sdk",
+        "ANDROID_STUDIO_HOME": "/path/to/Android Studio",
+        "ANDROID_PROJECT_DIR": "/path/to/your/android-project"
       }
     }
   }
@@ -79,13 +79,13 @@ Same `mcpServers` block as above. You can add `"timeout": 120000` (ms) to give t
 ```toml
 [mcp_servers.android-studio]
 command = "node"
-args = ["G:/Draven's Very Important Files/Workspace/Android Studio/android-studio-mcp/dist/index.js"]
+args = ["/path/to/android-studio-mcp/dist/index.js"]
 tool_timeout_sec = 120
 
 [mcp_servers.android-studio.env]
-ANDROID_SDK_ROOT = "G:/Draven's Very Important Files/Workspace/Android Studio/Android"
-ANDROID_STUDIO_HOME = "G:/Draven's Very Important Files/Workspace/Android Studio/Android Studio Files"
-ANDROID_PROJECT_DIR = "G:/Draven's Very Important Files/Workspace/Android Studio/Apps"
+ANDROID_SDK_ROOT = "/path/to/Android/Sdk"
+ANDROID_STUDIO_HOME = "/path/to/Android Studio"
+ANDROID_PROJECT_DIR = "/path/to/your/android-project"
 ```
 
 ### VS Code / GitHub Copilot: `.vscode/mcp.json`

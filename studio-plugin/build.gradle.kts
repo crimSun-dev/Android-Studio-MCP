@@ -14,10 +14,15 @@ repositories {
 }
 
 // Compile against an installed Android Studio instead of downloading one.
-// Override with -PstudioHome=... or the ANDROID_STUDIO_HOME env var.
+// Set -PstudioHome=... (or studioHome in ~/.gradle/gradle.properties) or ANDROID_STUDIO_HOME if it isn't in the default place.
+val defaultStudioHome = when {
+    System.getProperty("os.name").startsWith("Windows") -> "C:/Program Files/Android/Android Studio"
+    System.getProperty("os.name").startsWith("Mac") -> "/Applications/Android Studio.app/Contents"
+    else -> "/opt/android-studio"
+}
 val studioHome: String = providers.gradleProperty("studioHome")
     .orElse(providers.environmentVariable("ANDROID_STUDIO_HOME"))
-    .getOrElse(file("../../Android Studio Files").absolutePath)
+    .getOrElse(defaultStudioHome)
 
 dependencies {
     intellijPlatform {
