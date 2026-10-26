@@ -4,3 +4,4 @@ dist/
 studio-plugin/build/
 studio-plugin/.gradle/
 studio-plugin/.kotlin/
+studio-plugin/.intellijPlatform/
