@@ -5,25 +5,27 @@ import { execFileSync, spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const pluginDir = path.join(root, "studio-plugin");
 const isWin = process.platform === "win32";
 
-const { findStudio, studioLauncher } = await import(path.join(root, "dist", "env.js")).then((m) => m);
-const { listBridges, callBridge } = await import(path.join(root, "dist", "bridge.js")).then((m) => m);
+const { findStudio, studioLauncher } = await import(pathToFileURL(path.join(root, "dist", "env.js")).href);
+const { listBridges, callBridge } = await import(pathToFileURL(path.join(root, "dist", "bridge.js")).href);
+const { run } = await import(pathToFileURL(path.join(root, "dist", "exec.js")).href);
 
 const studio = findStudio();
 if (!studio) throw new Error("Android Studio not found; set ANDROID_STUDIO_HOME");
 
 // 1. Build.
 console.log("Building plugin…");
-execFileSync(isWin ? "cmd.exe" : "./gradlew", isWin ? ["/d", "/c", "gradlew.bat", "buildPlugin", "--console=plain", "-q"] : ["buildPlugin", "--console=plain", "-q"], {
+const build = await run(path.join(pluginDir, isWin ? "gradlew.bat" : "gradlew"), ["buildPlugin", "--console=plain", "-q"], {
   cwd: pluginDir,
-  stdio: "inherit",
   env: { ...process.env, ANDROID_STUDIO_HOME: studio },
+  onOutput: (t) => process.stdout.write(t),
 });
+if (build.code !== 0) throw new Error(`plugin build failed (exit ${build.code})`);
 const distDir = path.join(pluginDir, "build", "distributions");
 const zip = readdirSync(distDir).filter((f) => f.endsWith(".zip")).map((f) => path.join(distDir, f))[0];
 

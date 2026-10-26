@@ -119,6 +119,12 @@ cd studio-plugin
 
 Install `studio-plugin/build/distributions/android-studio-mcp-bridge-0.1.0.zip` via Settings → Plugins → ⚙ → Install Plugin from Disk, then restart Studio.
 
+Or do the whole cycle with one command: build, quit any running Studio through the bridge (no confirm dialog), install, and relaunch:
+
+```sh
+node scripts/install-plugin.mjs path/to/project
+```
+
 Calls that open a modal dialog in Studio (a rename conflict, the exit confirmation) wait for the dialog to close. After 20s they return a "UI thread busy" error, and you handle the dialog in Studio.
 
 ## Development
