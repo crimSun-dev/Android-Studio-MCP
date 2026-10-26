@@ -5,13 +5,10 @@ package dev.asmcp.bridge
 import com.google.gson.JsonObject
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskId
 import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskNotificationListener
 import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskType
 import com.intellij.openapi.externalSystem.service.notification.ExternalSystemProgressNotificationManager
-import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.wm.WindowManager
 import dev.asmcp.bridge.Handlers.int
 import java.util.concurrent.ConcurrentHashMap
 
@@ -85,10 +82,8 @@ object SyncTracker {
         val am = ActionManager.getInstance()
         val actionId = listOf("Android.SyncProject", "ExternalSystem.RefreshAllProjects").firstOrNull { am.getAction(it) != null }
             ?: throw BridgeError("No Gradle sync action available in this IDE")
-        Handlers.onEdt {
-            val component = FileEditorManager.getInstance(project).selectedTextEditor?.contentComponent
-                ?: WindowManager.getInstance().getFrame(project)?.rootPane
-            am.tryToExecute(am.getAction(actionId), null, component, ActionPlaces.UNKNOWN, true)
+        if (!Handlers.invokeAction(project, am.getAction(actionId))) {
+            throw BridgeError("Sync action is disabled right now (a sync may already be running); see sync_status")
         }
         val deadline = System.currentTimeMillis() + (args.int("waitSec") ?: 100) * 1000L
         while (System.currentTimeMillis() < deadline) {
