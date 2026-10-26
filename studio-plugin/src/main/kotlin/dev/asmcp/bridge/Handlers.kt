@@ -46,6 +46,12 @@ object Handlers {
         "run_configurations" to ::runConfigurations,
         "run" to ::run,
         "find_files" to ::findFiles,
+        "find_usages" to Analysis::findUsages,
+        "rename" to Analysis::rename,
+        "project_problems" to Analysis::projectProblems,
+        "gradle_sync" to SyncTracker::sync,
+        "sync_status" to SyncTracker::status,
+        "screenshot" to Analysis::screenshot,
     )
 
     fun dispatch(method: String, args: JsonObject): Any? {
@@ -55,16 +61,16 @@ object Handlers {
 
     // ---- helpers -------------------------------------------------------------------------------
 
-    private fun JsonObject.str(key: String): String? = get(key)?.takeIf { !it.isJsonNull }?.asString
-    private fun JsonObject.int(key: String): Int? = get(key)?.takeIf { !it.isJsonNull }?.asInt
-    private fun JsonObject.bool(key: String): Boolean = get(key)?.takeIf { !it.isJsonNull }?.asBoolean ?: false
+    internal fun JsonObject.str(key: String): String? = get(key)?.takeIf { !it.isJsonNull }?.asString
+    internal fun JsonObject.int(key: String): Int? = get(key)?.takeIf { !it.isJsonNull }?.asInt
+    internal fun JsonObject.bool(key: String): Boolean = get(key)?.takeIf { !it.isJsonNull }?.asBoolean ?: false
 
-    private fun openProjects(): List<Project> = ProjectManager.getInstance().openProjects.filter { !it.isDisposed && !it.isDefault }
+    internal fun openProjects(): List<Project> = ProjectManager.getInstance().openProjects.filter { !it.isDisposed && !it.isDefault }
 
     private fun norm(p: String) = Path.of(p).toAbsolutePath().normalize().toString().lowercase()
 
     /** Pick a project by `project` (name or base path), by the project containing `path`, or the active one. */
-    private fun project(args: JsonObject): Project {
+    internal fun project(args: JsonObject): Project {
         val projects = openProjects()
         if (projects.isEmpty()) throw BridgeError("No project is open in the IDE")
         args.str("project")?.let { key ->
@@ -79,12 +85,12 @@ object Handlers {
         return ProjectUtil.getActiveProject() ?: projects.first()
     }
 
-    private fun file(path: String): VirtualFile =
+    internal fun file(path: String): VirtualFile =
         LocalFileSystem.getInstance().refreshAndFindFileByPath(path.replace('\\', '/'))
             ?: throw BridgeError("File not found: $path")
 
     /** Run on the EDT and wait, without hanging the HTTP thread forever if a modal dialog blocks the queue. */
-    private fun <T> onEdt(timeoutSec: Long = 20, block: () -> T): T {
+    internal fun <T> onEdt(timeoutSec: Long = 20, block: () -> T): T {
         val future = CompletableFuture<T>()
         ApplicationManager.getApplication().invokeLater({
             try {
@@ -102,10 +108,17 @@ object Handlers {
         }
     }
 
-    private fun <T> read(block: () -> T): T = ReadAction.nonBlocking<T> { block() }.executeSynchronously()
+    /** Index-based features need smart mode; indexing often restarts briefly after a sync, so wait for it. */
+    internal fun requireSmart(project: Project, timeoutSec: Long = 60) {
+        if (DumbService.isDumb(project) && !DumbService.getInstance(project).waitForSmartMode(timeoutSec * 1000)) {
+            throw BridgeError("The IDE is still indexing after ${timeoutSec}s; try again shortly")
+        }
+    }
 
-    private fun line(doc: Document, offset: Int) = doc.getLineNumber(offset.coerceIn(0, doc.textLength)) + 1
-    private fun column(doc: Document, offset: Int): Int {
+    internal fun <T> read(block: () -> T): T = ReadAction.nonBlocking<T> { block() }.executeSynchronously()
+
+    internal fun line(doc: Document, offset: Int) = doc.getLineNumber(offset.coerceIn(0, doc.textLength)) + 1
+    internal fun column(doc: Document, offset: Int): Int {
         val o = offset.coerceIn(0, doc.textLength)
         return o - doc.getLineStartOffset(doc.getLineNumber(o)) + 1
     }
@@ -309,7 +322,7 @@ object Handlers {
     private fun findFiles(args: JsonObject): Any {
         val query = args.str("name") ?: throw BridgeError("name is required")
         val project = project(args)
-        if (DumbService.isDumb(project)) throw BridgeError("The IDE is still indexing; try again shortly")
+        requireSmart(project)
         val limit = args.int("limit") ?: 100
         return read {
             val scope = GlobalSearchScope.projectScope(project)

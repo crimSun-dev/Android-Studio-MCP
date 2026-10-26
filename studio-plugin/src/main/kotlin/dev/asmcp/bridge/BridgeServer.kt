@@ -58,6 +58,7 @@ class BridgeServer : Disposable {
         http.createContext("/") { ex -> handle(ex) }
         http.start()
         server = http
+        SyncTracker.install(this)
         file = writeBridgeFile(http.address.port)
         LOG.info("Android Studio MCP bridge listening on 127.0.0.1:${http.address.port}")
     }

@@ -12,7 +12,9 @@ An MCP server that gives AI coding agents the Android Studio toolchain: Gradle b
 | UI | `screenshot` (returns an image), `ui_dump` (nodes with tap coordinates), `input` (tap / swipe / text / key) |
 | Emulator | `emulator_list`, `emulator_start`, `emulator_stop` |
 | Jobs | `job_status`, `job_cancel` |
-| Live IDE (needs the plugin) | `ide_status`, `ide_editors`, `ide_read_file` (unsaved buffers), `ide_problems` (live analysis, no Gradle), `ide_open`, `ide_save_all`, `ide_actions`, `ide_action` (e.g. `Android.SyncProject`), `ide_run_configurations`, `ide_run`, `ide_find_files` |
+| Live IDE (needs the plugin) | `ide_status`, `ide_editors`, `ide_read_file` (unsaved buffers), `ide_problems` (one file), `ide_project_problems` (many files, no Gradle), `ide_open`, `ide_save_all`, `ide_find_files`, `ide_screenshot` (IDE window: Compose previews, layout editor) |
+| Refactoring (plugin) | `ide_find_usages`, `ide_rename` (Shift+F6 semantics, Kotlin/Java aware) |
+| Sync & run (plugin) | `ide_gradle_sync` (waits for the result), `ide_sync_status`, `ide_actions`, `ide_action`, `ide_run_configurations`, `ide_run` |
 
 **Long operations run as jobs.** `build`, `run_app`, `gradle_run` and `emulator_start` wait up to `waitSec` (default 50s). If they haven't finished by then, they return `{status: "running", id}` and the agent polls `job_status`. This stays under the tool-call timeouts that Cursor, Codex and Gemini CLI enforce.
 
@@ -117,6 +119,8 @@ cd studio-plugin
 
 Install `studio-plugin/build/distributions/android-studio-mcp-bridge-0.1.0.zip` via Settings → Plugins → ⚙ → Install Plugin from Disk, then restart Studio.
 
+Calls that open a modal dialog in Studio (a rename conflict, the exit confirmation) wait for the dialog to close. After 20s they return a "UI thread busy" error, and you handle the dialog in Studio.
+
 ## Development
 
 ```sh
@@ -130,5 +134,5 @@ npm run inspect      # MCP Inspector UI
 
 ## Roadmap
 
-- Plugin: rename/refactor and find-usages endpoints, project-wide problems, Gradle sync completion events, Layout Inspector and Compose preview capture.
+- Plugin: more refactorings (move, extract, change signature), project-wide inspections with quick-fixes, Layout Inspector snapshots, and headless Compose preview rendering (`ide_screenshot` captures previews shown in the IDE for now).
 - Compose preview rendering, Logcat streaming via MCP notifications, `avdmanager` create/delete, instrumented-test sharding, and baseline profile / Macrobenchmark helpers.
