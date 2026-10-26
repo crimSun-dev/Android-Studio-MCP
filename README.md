@@ -20,79 +20,48 @@ An MCP server that gives AI coding agents the Android Studio toolchain: Gradle b
 
 Build failures come back as structured diagnostics (`file`, `line`, `column`, `message`). They're parsed from Kotlin, javac, AAPT2, and Gradle's "What went wrong" block.
 
-## Install
+## Quick start
 
 ```sh
-npm install
-npm run build
+git clone https://github.com/crimSun-dev/Android-Studio-MCP.git
+cd Android-Studio-MCP
+npm install        # also compiles the server
+npm run setup
 ```
 
-Requires Node 20+, an Android SDK (platform-tools; emulator for the AVD tools), and a JDK. The JDK is taken from `JAVA_HOME`, falling back to Android Studio's bundled JBR.
+Requires Node 20+ and Android Studio (or at least an Android SDK). `npm run setup` takes care of the rest on Windows, macOS, and Linux:
 
-## Configuration (env vars)
+1. Finds your Android SDK and Android Studio, wherever they're installed (see below).
+2. Builds the Android Studio bridge plugin against your Studio and installs it.
+3. Registers the server with every MCP client it finds: Claude Code, Cursor, Gemini CLI, Codex, Claude Desktop, and VS Code. Existing entries are updated, and each config file is backed up as `*.bak-asmcp`.
 
-| Var | Purpose |
+Restart your AI clients afterwards. Options: `--dry-run`, `--no-plugin`, `--clients=cursor,codex`. Re-run setup after moving the checkout.
+
+### How paths are found
+
+Nothing machine-specific is stored in the client configs. The entry only points at this checkout's `dist/index.js`, and every server start re-discovers the toolchain:
+
+| What | Looked up in order |
 |---|---|
-| `ANDROID_SDK_ROOT` / `ANDROID_HOME` | SDK location. Falls back to the project's `local.properties` `sdk.dir`, then the default SDK path. |
-| `ANDROID_STUDIO_HOME` | Android Studio install dir (for `studio_open` and the JBR fallback) when it's not in the default location. |
-| `ANDROID_PROJECT_DIR` | Default project. Otherwise every project tool takes `projectDir`, or the server's cwd is searched upward. |
-| `ASMCP_TOKEN`, `ASMCP_PORT` | HTTP mode only: auth token (random if unset) and port (default 3939). |
+| Android SDK | `ANDROID_SDK_ROOT`, `ANDROID_HOME`, the project's `local.properties`, SDKs registered in Android Studio's settings, the Windows registry, `adb` on `PATH`, default SDK locations |
+| Android Studio | `ANDROID_STUDIO_HOME`, a running Studio with the plugin, the Windows registry, `studio` on `PATH`, JetBrains Toolbox installs, default install locations |
+| Project | the tool's `projectDir` argument, `ANDROID_PROJECT_DIR`, the server's working directory (walking up), the project that's active in Android Studio |
+| JDK for Gradle | `JAVA_HOME`, then Android Studio's bundled JBR |
 
-Replace the `/path/to/...` placeholders below with your paths. On Windows, use forward slashes (`C:/Users/me/AppData/Local/Android/Sdk`) or escaped backslashes in JSON and TOML. If your SDK and Studio are in their default locations, you can leave out `ANDROID_SDK_ROOT` and `ANDROID_STUDIO_HOME`.
+The `environment` tool shows what was found. The env vars above are only needed for unusual layouts. `ASMCP_TOKEN` and `ASMCP_PORT` configure HTTP mode.
 
-### Claude Code
+### Manual registration
 
-```sh
-claude mcp add android-studio --scope user \
-  -e ANDROID_SDK_ROOT="/path/to/Android/Sdk" \
-  -e ANDROID_STUDIO_HOME="/path/to/Android Studio" \
-  -- node "/path/to/android-studio-mcp/dist/index.js"
-```
+If you'd rather not run setup, add one entry yourself, with `/path/to` pointing at your clone:
 
-Leave `ANDROID_PROJECT_DIR` unset. Claude Code starts the server in the folder you open, so it finds the project automatically.
+| Client | Config |
+|---|---|
+| Claude Code | `claude mcp add android-studio -s user -- node /path/to/Android-Studio-MCP/dist/index.js` |
+| Cursor / Claude Desktop / Gemini CLI | `{"mcpServers": {"android-studio": {"command": "node", "args": ["/path/to/Android-Studio-MCP/dist/index.js"]}}}` in `~/.cursor/mcp.json`, `claude_desktop_config.json`, or `~/.gemini/settings.json` |
+| Codex | `[mcp_servers.android-studio]` with `command = "node"`, `args = ["/path/to/Android-Studio-MCP/dist/index.js"]`, `tool_timeout_sec = 120` in `~/.codex/config.toml` |
+| VS Code / Copilot | `{"servers": {"android-studio": {"type": "stdio", "command": "node", "args": ["/path/to/Android-Studio-MCP/dist/index.js"]}}}` in your user `mcp.json` |
 
-### Claude Desktop: `%APPDATA%\Claude\claude_desktop_config.json`
-### Cursor: `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project)
-
-```json
-{
-  "mcpServers": {
-    "android-studio": {
-      "command": "node",
-      "args": ["/path/to/android-studio-mcp/dist/index.js"],
-      "env": {
-        "ANDROID_SDK_ROOT": "/path/to/Android/Sdk",
-        "ANDROID_STUDIO_HOME": "/path/to/Android Studio",
-        "ANDROID_PROJECT_DIR": "/path/to/your/android-project"
-      }
-    }
-  }
-}
-```
-
-### Gemini CLI: `~/.gemini/settings.json`
-
-Same `mcpServers` block as above. You can add `"timeout": 120000` (ms) to give the job tools room.
-
-### Codex: `~/.codex/config.toml`
-
-```toml
-[mcp_servers.android-studio]
-command = "node"
-args = ["/path/to/android-studio-mcp/dist/index.js"]
-tool_timeout_sec = 120
-
-[mcp_servers.android-studio.env]
-ANDROID_SDK_ROOT = "/path/to/Android/Sdk"
-ANDROID_STUDIO_HOME = "/path/to/Android Studio"
-ANDROID_PROJECT_DIR = "/path/to/your/android-project"
-```
-
-### VS Code / GitHub Copilot: `.vscode/mcp.json`
-
-```json
-{ "servers": { "android-studio": { "type": "stdio", "command": "node", "args": ["…/dist/index.js"], "env": { "ANDROID_SDK_ROOT": "…" } } } }
-```
+On Windows, write paths with forward slashes in JSON and TOML.
 
 ### Android Studio itself (Gemini in Android Studio)
 
@@ -112,18 +81,13 @@ Then expose it over HTTPS, for example with `cloudflared tunnel --url http://127
 
 `studio-plugin/` is a small IntelliJ Platform plugin. On startup it serves a token-protected HTTP endpoint on `127.0.0.1` (random port) and records the port and token in `~/.android-studio-mcp/bridges/<pid>.json`. The MCP server reads that file. When Studio is running, the `ide_*` tools work, and `build` / `run_app` save unsaved editors first. When it isn't running, everything else still works from the CLI.
 
-```sh
-cd studio-plugin
-./gradlew buildPlugin            # compiles against the Studio in ANDROID_STUDIO_HOME (or -PstudioHome=...)
-```
-
-Install `studio-plugin/build/distributions/android-studio-mcp-bridge-0.1.0.zip` via Settings → Plugins → ⚙ → Install Plugin from Disk, then restart Studio.
-
-Or do the whole cycle with one command: build, quit any running Studio through the bridge (no confirm dialog), install, and relaunch:
+`npm run setup` installs it. To update it after changing the plugin, run:
 
 ```sh
-node scripts/install-plugin.mjs path/to/project
+npm run install-plugin            # build, quit Studio via the bridge (no confirm dialog), install, relaunch
 ```
+
+That builds against your detected Studio, using Studio's bundled JDK. To build by hand, run `cd studio-plugin && ./gradlew buildPlugin` with `ANDROID_STUDIO_HOME` set if Studio isn't in its default location. Then install `build/distributions/*.zip` via Settings → Plugins → ⚙ → Install Plugin from Disk.
 
 Calls that open a modal dialog in Studio (a rename conflict, the exit confirmation) wait for the dialog to close. After 20s they return a "UI thread busy" error, and you handle the dialog in Studio.
 

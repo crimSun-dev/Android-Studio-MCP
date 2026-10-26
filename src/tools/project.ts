@@ -35,7 +35,7 @@ export function registerProjectTools(server: McpServer) {
       let project: string | undefined;
       let projectError: string | undefined;
       try {
-        project = resolveProject(a.projectDir);
+        project = await resolveProject(a.projectDir);
       } catch (e) {
         projectError = (e as Error).message;
       }
@@ -77,7 +77,7 @@ export function registerProjectTools(server: McpServer) {
       annotations: { readOnlyHint: true },
     },
     safe(async (a) => {
-      const root = resolveProject(a.projectDir);
+      const root = await resolveProject(a.projectDir);
       const wrapper = readProps(path.join(root, "gradle", "wrapper", "gradle-wrapper.properties"));
       const gradleVersion = wrapper.distributionUrl?.match(/gradle-([\d.]+(?:-[\w.]+)?)-(?:bin|all)\.zip/)?.[1];
       const catalogFile = path.join(root, "gradle", "libs.versions.toml");
@@ -105,7 +105,7 @@ export function registerProjectTools(server: McpServer) {
       annotations: { readOnlyHint: true },
     },
     safe(async (a) => {
-      const root = resolveProject(a.projectDir);
+      const root = await resolveProject(a.projectDir);
       const mods = a.module ? [a.module] : listModules(root);
       return json(
         mods.flatMap((m) =>

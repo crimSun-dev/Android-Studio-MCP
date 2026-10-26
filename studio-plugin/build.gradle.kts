@@ -14,7 +14,8 @@ repositories {
 }
 
 // Compile against an installed Android Studio instead of downloading one.
-// Set -PstudioHome=... (or studioHome in ~/.gradle/gradle.properties) or ANDROID_STUDIO_HOME if it isn't in the default place.
+// scripts/install-plugin.mjs finds Studio automatically and passes ANDROID_STUDIO_HOME; when running Gradle
+// directly, set -PstudioHome=... or ANDROID_STUDIO_HOME if Studio isn't in its default place.
 val defaultStudioHome = when {
     System.getProperty("os.name").startsWith("Windows") -> "C:/Program Files/Android/Android Studio"
     System.getProperty("os.name").startsWith("Mac") -> "/Applications/Android Studio.app/Contents"
@@ -30,8 +31,16 @@ dependencies {
     }
 }
 
-kotlin {
-    jvmToolchain(21)
+// Compile with the IDE's own JDK version (found via ANDROID_STUDIO_JBR or downloaded), but emit Java 21 bytecode
+// so the plugin also loads in older Studio releases that run on JBR 21.
+java {
+    targetCompatibility = JavaVersion.VERSION_21
+}
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+}
+tasks.withType<JavaCompile>().configureEach {
+    options.release.set(21)
 }
 
 intellijPlatform {

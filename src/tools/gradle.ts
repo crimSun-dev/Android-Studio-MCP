@@ -158,7 +158,7 @@ export function registerGradleTools(server: McpServer) {
       annotations: { readOnlyHint: true },
     },
     safe(async (a) => {
-      const root = resolveProject(a.projectDir);
+      const root = await resolveProject(a.projectDir);
       const task = a.module ? `${a.module}:tasks` : "tasks";
       const res = await run(gradleWrapper(root), [task, "--console=plain", ...(a.all ? ["--all"] : [])], {
         cwd: root,
@@ -184,7 +184,7 @@ export function registerGradleTools(server: McpServer) {
       },
     },
     safe(async (a) => {
-      const root = resolveProject(a.projectDir);
+      const root = await resolveProject(a.projectDir);
       return gradleJob(`gradle ${a.tasks.join(" ")}`, a.waitSec, (ctx) => runGradle(root, a.tasks, a.args, ctx));
     }),
   );
@@ -202,7 +202,7 @@ export function registerGradleTools(server: McpServer) {
       },
     },
     safe(async (a) => {
-      const root = resolveProject(a.projectDir);
+      const root = await resolveProject(a.projectDir);
       const mod = a.module ?? defaultAppModule(root);
       const task = `${mod}:assemble${capitalize(a.variant)}`;
       return gradleJob(`build ${task}`, a.waitSec, async (ctx) => {
@@ -227,7 +227,7 @@ export function registerGradleTools(server: McpServer) {
       },
     },
     safe(async (a) => {
-      const root = resolveProject(a.projectDir);
+      const root = await resolveProject(a.projectDir);
       const mod = a.module ?? defaultAppModule(root);
       const serial = await resolveSerial(a.serial);
       const task = `${mod}:assemble${capitalize(a.variant)}`;
@@ -265,7 +265,7 @@ export function registerGradleTools(server: McpServer) {
       annotations: { readOnlyHint: true },
     },
     safe(async (a) => {
-      const root = resolveProject(a.projectDir);
+      const root = await resolveProject(a.projectDir);
       const mods = a.module ? [a.module] : listModules(root);
       const cases: (TestCase & { module: string })[] = [];
       for (const mod of mods) {
@@ -300,7 +300,7 @@ export function registerGradleTools(server: McpServer) {
       annotations: { readOnlyHint: true },
     },
     safe(async (a) => {
-      const root = resolveProject(a.projectDir);
+      const root = await resolveProject(a.projectDir);
       const rank = ["Information", "Warning", "Error", "Fatal"];
       const mods = a.module ? [a.module] : listModules(root);
       const issues: unknown[] = [];

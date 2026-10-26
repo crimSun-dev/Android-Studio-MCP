@@ -1,6 +1,6 @@
 // Build the bridge plugin, quit any running Android Studio through the bridge, install the plugin into Studio's
 // plugins dir, and relaunch Studio (optionally on a project).
-// Usage: node scripts/install-plugin.mjs [projectDir]   (needs ANDROID_STUDIO_HOME unless Studio is in the default location)
+// Usage: node scripts/install-plugin.mjs [projectDir]   (Studio is found automatically; ANDROID_STUDIO_HOME overrides)
 import { execFileSync, spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
@@ -11,7 +11,7 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const pluginDir = path.join(root, "studio-plugin");
 const isWin = process.platform === "win32";
 
-const { findStudio, studioLauncher } = await import(pathToFileURL(path.join(root, "dist", "env.js")).href);
+const { findSdk, findStudio, gradleEnv, studioJbr, studioLauncher } = await import(pathToFileURL(path.join(root, "dist", "env.js")).href);
 const { listBridges, callBridge } = await import(pathToFileURL(path.join(root, "dist", "bridge.js")).href);
 const { run } = await import(pathToFileURL(path.join(root, "dist", "exec.js")).href);
 
@@ -22,7 +22,8 @@ if (!studio) throw new Error("Android Studio not found; set ANDROID_STUDIO_HOME"
 console.log("Building plugin…");
 const build = await run(path.join(pluginDir, isWin ? "gradlew.bat" : "gradlew"), ["buildPlugin", "--console=plain", "-q"], {
   cwd: pluginDir,
-  env: { ...process.env, ANDROID_STUDIO_HOME: studio },
+  // Gradle needs a JDK: keep JAVA_HOME if set, else use Studio's bundled JBR.
+  env: { ...gradleEnv(findSdk()), ANDROID_STUDIO_HOME: studio, ANDROID_STUDIO_JBR: studioJbr(studio) ?? "" },
   onOutput: (t) => process.stdout.write(t),
 });
 if (build.code !== 0) throw new Error(`plugin build failed (exit ${build.code})`);

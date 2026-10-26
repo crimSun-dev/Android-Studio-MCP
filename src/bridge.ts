@@ -14,6 +14,8 @@ export interface BridgeInfo {
   build: string;
   bridgeVersion: string;
   startedAt: number;
+  /** Studio's install dir (older bridge builds omit it). */
+  home?: string;
 }
 
 export const bridgeDir = path.join(homedir(), ".android-studio-mcp", "bridges");

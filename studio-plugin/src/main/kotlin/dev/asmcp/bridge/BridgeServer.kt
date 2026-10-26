@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationInfo
+import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
@@ -74,6 +75,7 @@ class BridgeServer : Disposable {
             "build" to ApplicationInfo.getInstance().build.asString(),
             "bridgeVersion" to BRIDGE_VERSION,
             "startedAt" to System.currentTimeMillis(),
+            "home" to PathManager.getHomePath(),
         )
         val target = bridgeDir.resolve("$pid.json")
         val tmp = Files.createTempFile(bridgeDir, "bridge", ".tmp")

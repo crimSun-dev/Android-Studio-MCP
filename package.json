@@ -16,7 +16,10 @@
     "start": "node dist/index.js",
     "inspect": "npx @modelcontextprotocol/inspector node dist/index.js",
     "smoke": "node scripts/smoke.mjs",
-    "test": "npm run build && node scripts/parse-test.mjs && node scripts/http-test.mjs"
+    "test": "npm run build && node scripts/parse-test.mjs && node scripts/http-test.mjs",
+    "prepare": "tsc",
+    "setup": "node scripts/setup.mjs",
+    "install-plugin": "node scripts/install-plugin.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -29,5 +32,9 @@
   "devDependencies": {
     "@types/node": "^22.20.5",
     "typescript": "^5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crimSun-dev/Android-Studio-MCP.git"
   }
 }

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { callBridge, listBridges } from "./bridge.js";
 
 const SETTINGS_FILES = ["settings.gradle.kts", "settings.gradle"];
 const BUILD_FILES = ["build.gradle.kts", "build.gradle"];
@@ -8,8 +9,11 @@ export function isGradleRoot(dir: string): boolean {
   return SETTINGS_FILES.some((f) => existsSync(path.join(dir, f)));
 }
 
-/** Resolve the Android project: explicit arg, then ANDROID_PROJECT_DIR, then the server's cwd (walking up). */
-export function resolveProject(projectDir?: string): string {
+/**
+ * Resolve the Android project: explicit arg, then ANDROID_PROJECT_DIR, then the server's cwd (walking up),
+ * then the project that is active in a running Android Studio.
+ */
+export async function resolveProject(projectDir?: string): Promise<string> {
   const explicit = projectDir ?? process.env.ANDROID_PROJECT_DIR;
   if (explicit) {
     const abs = path.resolve(explicit);
@@ -23,8 +27,14 @@ export function resolveProject(projectDir?: string): string {
     if (parent === dir) break;
     dir = parent;
   }
+  if (listBridges().length) {
+    const status = await callBridge<{ projects: { basePath?: string; active: boolean }[] }>("status", {}, 5000).catch(() => undefined);
+    const open = status?.projects.filter((p) => p.basePath && isGradleRoot(p.basePath)) ?? [];
+    const pick = open.find((p) => p.active) ?? open[0];
+    if (pick?.basePath) return path.resolve(pick.basePath);
+  }
   throw new Error(
-    "No Android project found. Pass projectDir, set ANDROID_PROJECT_DIR in the MCP server env, or start the server inside the project.",
+    "No Android project found. Pass projectDir, open the project in Android Studio, set ANDROID_PROJECT_DIR in the MCP server env, or start the server inside the project.",
   );
 }
 
